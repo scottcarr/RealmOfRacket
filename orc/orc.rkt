@@ -10,13 +10,18 @@
 (define STRENGTH-COLOR "red")
 (define ATTACKS# 3)
 (define CLUB-STRENGTH 5)
-(define MONSTER# 10)
+(define MONSTER# 12)
 (define MESSAGE-SIZE 10)
 (define MESSAGE-COLOR "green")
 (define REMAINING "Turns: ")
-(define INSTRUCTION-TEXT-SIZE 10)
+(define INSTRUCTION-TEXT-SIZE 20)
 (define ATTACK-COLOR "red")
-(define INSTRUCTION-TEXT "adfdasfdf")
+(define INSTRUCTIONS-1 "Select a monster using the arrow keys")
+(define INSTRUCTIONS-2 "S: Stab, F: Fail, H: Heal")
+(define INSTRUCTION-TEXT
+  (above 
+   (text INSTRUCTIONS-2 (- INSTRUCTION-TEXT-SIZE 2) "blue")
+   (text INSTRUCTIONS-1 (- INSTRUCTION-TEXT-SIZE 4) "blue")))
 (define V-SPACER (rectangle 0 10 "solid" "white"))
 (define H-SPACER (rectangle 10 0 "solid" "white"))
 (define HEALTH-BAR-WIDTH 100)
@@ -36,7 +41,7 @@
 (define PER-ROW 4)
 (define HEALING 5)
 (define TARGET (rectangle 80 80 'outline "red"))
-(define DEAD-TEXT "You have died.")
+(define DEAD-TEXT "DEAD") ; overlayed over a monster
 (define MONSTER-COLOR "red")
 (define END-GAME-TEXT-SIZE 25)
 
@@ -51,13 +56,13 @@
 (define FAIL-DAMAGE 1)
 
 ; struct defs
-(struct orc-world (player lom attack# target instructions) #:mutable)
-(struct monster (image [health #:mutable]))
-(struct orc monster (club))
-(struct hydra monster ())
-(struct slime monster (sliminess))
-(struct brigand monster ())
-(struct player (health agility strength) #:mutable)
+(struct orc-world (player lom attack# target instructions) #:mutable #:transparent)
+(struct monster (image [health #:mutable]) #:transparent)
+(struct orc monster (club) #:transparent)
+(struct hydra monster () #:transparent)
+(struct slime monster (sliminess) #:transparent)
+(struct brigand monster () #:transparent)
+(struct player (health agility strength) #:mutable #:transparent)
 
 ; misc methods
 
@@ -125,7 +130,7 @@
     (define health (monster-health m))
     (define health-bar
       (if (= health 0)
-          (overlay DEAD-TEXT (status-bar 0 1 'white ""))
+          (overlay (text DEAD-TEXT END-GAME-TEXT-SIZE "black") (status-bar 0 1 'white ""))
           (status-bar health MONSTER-HEALTH0 MONSTER-COLOR "")))
     (above health-bar image))
   (arrange (map render-one-monster lom)))
@@ -191,7 +196,7 @@
        [(3) (brigand BRIGAND-IMAGE health)]))))
 
 (define (decrease-attack# w)
-  (set-orc-world-attack#! (sub1 (orc-world-attack# w))))
+  (set-orc-world-attack#! w (sub1 (orc-world-attack# w))))
 
 (define (damage-monster m delta)
   (set-monster-health! m (interval- (monster-health m) delta)))
@@ -219,7 +224,7 @@
       [(slime? m)
        (player-health+ player -1)
        (player-agility+ player
-                        (random- (slime-sliminess monster)))]
+                        (random- (slime-sliminess m)))]
       [(brigand? m)
        (case (random 3)
          [(0) (player-health+ player HEALTH-DAMAGE)]
@@ -229,20 +234,24 @@
   (for-each one-monster-attacks-player live-monster))
 
 (define (monster-alive? m)
-  (= (monster-health m) 0))
+  (not (= (monster-health m) 0)))
   
 (define (all-dead? lom)
   (not (ormap monster-alive? lom)))
   
 (define (win? w)
+  ;(display "win\n")
   (all-dead? (orc-world-lom w)))
 
+#|
 (define (player-dead? p)
   (or (= (player-health 0))
       (= (player-agility 0))
       (= (player-strength 0))))
+|#
   
 (define (lose? w)
+  ;(display "lose\n")
   (define life (player-health (orc-world-player w)))
   (= life 0))
 
@@ -284,7 +293,7 @@
 
 (define (player-acts-on-monsters w k)
   (cond
-    [(zero? (orc-world-attack# w) (void))]
+    [(zero? (orc-world-attack# w)) (void)]
     [(key=? "s" k) (stab w)]
     [(key=? "h" k) (heal w)]
     [(key=? "f" k) (flail w)]
