@@ -2,9 +2,9 @@
 (require 2htdp/image 2htdp/universe)
 
 ; constant defs
-(define MAX-HEALTH 35)
-(define MAX-AGILITY 35)
-(define MAX-STRENGTH 35)
+(define MAX-HEALTH 100)
+(define MAX-AGILITY 100)
+(define MAX-STRENGTH 100)
 (define HEALTH-COLOR "green")
 (define AGILITY-COLOR "blue")
 (define STRENGTH-COLOR "red")
@@ -47,9 +47,9 @@
 
 
 ; brigand damage constants
-(define HEALTH-DAMAGE 1)
-(define AGILITY-DAMAGE 1)
-(define STRENGTH-DAMAGE 1)
+(define HEALTH-DAMAGE -1)
+(define AGILITY-DAMAGE -1)
+(define STRENGTH-DAMAGE -1)
 
 ; player damage contants
 (define STAB-DAMAGE 3)
@@ -82,13 +82,13 @@
   (lambda (player delta)
     (setter player (interval+ (selector player) delta mx))))
 
-(define (player-health+ player delta)
+(define player-health+
   (player-update! set-player-health! player-health MAX-HEALTH))
 
-(define (player-agility+ player delta)
+(define player-agility+
   (player-update! set-player-agility! player-agility MAX-AGILITY))
 
-(define (player-strength+ player delta)
+(define player-strength+
   (player-update! set-player-strength! player-strength MAX-STRENGTH))
 
 (define (initialize-player)
@@ -98,7 +98,7 @@
   (add1 (random n)))
 
 (define (random-  n)
-  (random n))
+  (- (add1 (random n))))
 
 (define (random-quotient x y)
   (define div (quotient x y))
@@ -220,6 +220,7 @@
       [(orc? m)
        (player-health+ player (random- (orc-club m)))]
       [(hydra? m)
+       (display "hydra attack!\n")
        (player-health+ player (random- (monster-health m)))]
       [(slime? m)
        (player-health+ player -1)
@@ -280,7 +281,8 @@
      (random-quotient (player-strength (orc-world-player w))
                       FAIL-DAMAGE)
      (length alive)))
-  (define getem (const target (take alive pick#)))
+  ;; this seems suspect
+  (define getem (cons target (take alive pick#)))
   (for-each (lambda (m) (damage-monster m 1)) getem))
 
 (define (end-of-orc-battle? w)
