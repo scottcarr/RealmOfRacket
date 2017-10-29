@@ -44,6 +44,12 @@
 (struct territory (index player dice x y) #:transparent)
 (struct game (board player moves) #:transparent)
 (struct move (action gt) #:transparent)
+ 
+(define (territory-set-dice t d)
+  (territory (territory-index t) (territory-player t) d (territory-x t) (territory-y t)))
+
+(define (territory-set-player t p)
+  (territory (territory-index t) p (territory-dice t) (territory-x t) (territory-y t)))
 
 (define (draw-focus marked? p-in-focus p t-image)
   (if (or (and (not marked?) (= p-in-focus p))
@@ -63,9 +69,35 @@
 (define (add b x)
   (if b empty (list x)))
 
+#|
+Each hex has six possible neighbors:
+
+
+      0  / \ 1
+    2   |   | 3
+     4   \ /  5
+Our board looks like:
+
+     0 1
+    2 3 
+|#
+(define (odd-row pos top? bottom? right? left?)
+  (append (add top?                (- pos BOARD))        ; upper right
+	  (add (or bottom? right?) (add1 (+ pos BOARD))) ; lower right
+	  (add (or top? left?)     (sub1 (- pos BOARD))) ; upper left
+	  (add bottom?             (+ pos BOARD))        ; lower left
+	  (add right?              (add1 pos))           ; right
+	  (add left?               (sub1 pos))))         ; left
+
 (define (even-row pos top? bottom? right? left?)
-  ;; TODO )
-	 
+  (append (add (or top? right?)    (- pos BOARD))        ; upper right
+	  (add (or bottom? right?) (add1 (+ pos BOARD))) ; lower right
+	  (add top?                (sub1 (- pos BOARD))) ; upper left
+	  (add bottom?             (+ pos BOARD))        ; lower left 
+	  (add right?              (add1 pos))           ; right
+	  (add left?               (sub1 pos))))         ; left
+
+
 (define (neighbors pos)
   (define top? (< pos BOARD))
   (define bottom? (= (get-row pos) (sub1 BOARD)))
@@ -84,6 +116,23 @@
 	(values (- dice 1) (cons (add-dice-to t) new-board))
 	(values dice (cons t new-board)))))
 
+(define (attackable? board player src dst)
+  (define dst-t
+    (findf (lambda (t) (= (territory-index t) dst)) board))
+  (and dst-t
+       (= (territory-player src) player)
+       (not (= (territory-player dst-t) player))
+       (> (territory-dice src) (territory-dice dst-t))))
+
+(define (execute board player src dst dice)
+  (for/list ([t board])
+    (define idx (territory-index t))
+    (cond [(= idx src) (territory-set-dice t 1)]
+          [(= idx dst)
+           (define s (territory-set-dice t (- dice 1)))
+           (territory-set-player s player)]
+          [else t])))
+
 (define (game-tree board player dice)
   ;; create tree of attacks from this positiion; add passing move
   (define (attacks board)
@@ -92,8 +141,13 @@
                 #:when (attackable? board player src dst))
       (define from (territory-index src))
       (define dice (territory-dice src))
+      (display from)
+      (display dice)
       (define newb (execute board player from dst dice))
-      (move (list from dst) (game newb player more))))
+      ;(define more (cons (passes newb) (attacks newb)))
+      (define attacks-from-newb 
+        (game newb player (cons (passes newb) (attacks newb))))
+      (move (list from dst) attacks-from-newb)))
   ;; create a passing move and the rest of the game tree
   (define (passes board)
     (define-values (new-dice newb) (distribute board player dice))
@@ -184,3 +238,20 @@
   (define gamet (game-tree board INIT-PLAYER INIT-SPARE-DICE))
   (define new-world (dice-world #f board gamet))
   new-world)
+
+(module+ test
+  (require rackunit rackunit/text-ui)
+
+  ;; Neighbors
+  (check-equal? (neighbors 2) '(0 3))
+  (check-equal? (neighbors 0) '(3 2 1))
+  (check-equal? (neighbors 1) '(3 0)) 
+  (check-equal? (neighbors 3) '(1 0 2))
+
+    ;; legal?
+  (check-true 
+   (and (attackable? (list (territory 0 0 2 9 0) (territory 3 1 1 9 0)) 0 (territory 0 0 2 9 0) 3) #t))
+  (check-false
+   (attackable? (list (territory 0 0 2 9 0) (territory 3 1 1 9 0)) 0 (territory 0 0 2 9 0) 0))
+  (check-false
+   (attackable? (list (territory 0 0 2 9 0) (territory 5 1 1 9 0)) 1 (territory 0 0 2 9 0) 5)))
