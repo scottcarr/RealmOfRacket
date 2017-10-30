@@ -37,6 +37,8 @@
 (define YOUR-TURN "It's your turn")
 (define INFO-X-OFFSET 100)
 (define INFO-Y-OFFSET 50)
+(define AI 1)
+
 
 ; structs
 (struct action (player position) #:transparent)
@@ -141,8 +143,8 @@ Our board looks like:
                 #:when (attackable? board player src dst))
       (define from (territory-index src))
       (define dice (territory-dice src))
-      (display from)
-      (display dice)
+      ;(display from)
+      ;(display dice)
       (define newb (execute board player from dst dice))
       ;(define more (cons (passes newb) (attacks newb)))
       (define attacks-from-newb 
@@ -155,6 +157,20 @@ Our board looks like:
   ;; -- START: --
   (game board player (attacks board)))
  
+;; rendering
+
+(define (whose-turn player)
+  (if (= player AI) AI-TURN YOUR-TURN))
+
+(define (add-player-info player s)
+  (define str (whose-turn player))
+  (define txt (text str TEXT-SIZE TEXT-COLOR))
+  (place-image txt (- WIDTH INFO-X-OFFSET) INFO-Y-OFFSET s))
+
+(define (draw-dice-world w)
+  (add-player-info
+   (game-player (dice-world-gt w))
+   (add-board-to-scene w (ISCENE))))
 
 (define (draw-dice dice)
   (define first-dice (get-dice-image 0))
@@ -201,7 +217,6 @@ Our board looks like:
   (define-values (best-score w) (winners board))
   (if (cons? (rest w)) "It's a tie" "You won."))
 
-
 (define (draw-end-of-dice-world w)
   (define board (dice-world-board w))
   (define message (text (won board) TEXT-SIZE TEXT-COLOR))
@@ -214,6 +229,12 @@ Our board looks like:
   (set! WIDTH  (+ (max iw bw) 50))
   (set! HEIGHT (+ (* SIDE 2 BOARD) 50))
   (empty-scene WIDTH HEIGHT))
+
+(define (ISCENE)
+  (define mt (PLAIN))
+  (when (or (> (image-width mt) 1280) (> (image-height mt) 800))
+    (error 'scene "it is impossible to draw a ~s x ~s game scene for a 1280 x 800 laptop screen" (image-width mt) (image-height mt)))
+  (place-image INSTRUCTIONS (* .5 WIDTH) (* .9 HEIGHT) mt))
 
 (define (dice)
   (add1 (random DICE#)))
